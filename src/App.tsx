@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import Applications from "./Applications";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -87,6 +88,7 @@ function App() {
         <section>
           <p>Signed in as {user.email}</p>
           <button onClick={handleLogout}>Log out</button>
+          <Applications key={token} token={token} />
         </section>
       ) : (
         <form onSubmit={handleLogin}>
@@ -124,6 +126,7 @@ function App() {
             {loading ? "Logging in..." : "Log in"}
           </button>
         </form>
+
       )}
     </main>
   );
