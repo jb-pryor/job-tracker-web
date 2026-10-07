@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import Applications from "./Applications";
+import CreateApplication from "./CreateApplications";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -17,6 +18,7 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [listVersion, setListVersion] = useState(0);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,7 +90,8 @@ function App() {
         <section>
           <p>Signed in as {user.email}</p>
           <button onClick={handleLogout}>Log out</button>
-          <Applications key={token} token={token} />
+          <CreateApplication token={token} onCreated={() => setListVersion((version) => version + 1)}/>
+          <Applications key={`${token}-${listVersion}`} token={token} />
         </section>
       ) : (
         <form onSubmit={handleLogin}>
