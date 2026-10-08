@@ -14,6 +14,7 @@ export default function CreateApplication({ token, onCreated }: Props) {
   const [status, setStatus] = useState("saved");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [appliedOn, setAppliedOn] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,6 +38,7 @@ export default function CreateApplication({ token, onCreated }: Props) {
           company: company.trim(),
           job_title: jobTitle.trim(),
           status,
+          applied_on: appliedOn || null,
         }),
       });
 
@@ -53,6 +55,7 @@ export default function CreateApplication({ token, onCreated }: Props) {
       setCompany("");
       setJobTitle("");
       setStatus("saved");
+      setAppliedOn("");
       onCreated();
     } catch (error) {
       setError(
@@ -111,6 +114,17 @@ export default function CreateApplication({ token, onCreated }: Props) {
         </div>
 
         {error && <p role="alert">{error}</p>}
+
+        <div>
+          <label htmlFor="applied-on">Applied on</label>
+          <input
+            id="applied-on"
+            type="date"
+            value={appliedOn}
+            onChange={(event) => setAppliedOn(event.target.value)}
+            disabled={saving}
+          />
+        </div>
 
         <button type="submit" disabled={saving}>
           {saving ? "Saving..." : "Add application"}
