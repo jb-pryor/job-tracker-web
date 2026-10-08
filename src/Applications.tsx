@@ -28,6 +28,8 @@ export default function Applications({ token }: Props) {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [actionError, setActionError] = useState("");
 
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -131,6 +133,54 @@ export default function Applications({ token }: Props) {
     }
   }
 
+  async function updateStatus(applicationId: number, status: string) {
+    setUpdatingId(applicationId);
+    setActionError("");
+  
+    try {
+      const response = await fetch(
+        `${API_URL}/applications/${applicationId}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status }),
+        },
+      );
+  
+      if (!response.ok) {
+        throw new Error(
+          response.status === 401
+            ? "Your session has expired. Log out and log in again."
+            : `Could not update application (${response.status}).`,
+        );
+      }
+  
+      const updated: Application = await response.json();
+  
+      setResult((current) =>
+        current
+          ? {
+              ...current,
+              items: current.items.map((item) =>
+                item.id === applicationId ? updated : item,
+              ),
+            }
+          : current,
+      );
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Could not update application.",
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
   return (
     <section>
       <h2>Your applications</h2>
@@ -157,12 +207,31 @@ export default function Applications({ token }: Props) {
               <tr key={application.id}>
                 <td>{application.company}</td>
                 <td>{application.job_title}</td>
-                <td>{application.status}</td>
+                <td>
+                  <select
+                    aria-label={`Status for ${application.job_title} at ${application.company}`}
+                    value={application.status}
+                    onChange={(event) =>
+                      updateStatus(application.id, event.target.value)
+                    }
+                    disabled={updatingId !== null || deletingId !== null}
+                  >
+                    <option value="saved">Saved</option>
+                    <option value="applied">Applied</option>
+                    <option value="interviewing">Interviewing</option>
+                    <option value="offer">Offer</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+
+                  {updatingId === application.id && (
+                    <span role="status"> Saving...</span>
+                  )}
+                </td>
                 <td>{application.applied_on ?? "—"}</td>
                 <td>
                   <button
                     onClick={() => deleteApplication(application)}
-                    disabled={deletingId !== null}
+                    disabled={deletingId !== null || updatingId !== null}
                   >
                     {deletingId === application.id ? "Deleting..." : "Delete"}
                   </button>
