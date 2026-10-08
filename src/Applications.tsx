@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL;
+const PAGE_SIZE = 10;
+const STATUSES = ["saved", "applied", "interviewing", "offer", "rejected"];
 
 type Application = {
   id: number;
@@ -22,25 +24,48 @@ type Props = {
 };
 
 export default function Applications({ token }: Props) {
-  const [result, setResult] = useState<ApplicationList | null>(null);
-  const [error, setError] = useState("");
+  const [query, setQuery] = useState({
+    status: "",
+    offset: 0,
+    revision: 0,
+  });
+
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    data: ApplicationList | null;
+    error: string;
+  } | null>(null);
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [actionError, setActionError] = useState("");
 
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const { status, offset, revision } = query;
+  const requestKey = JSON.stringify([token, status, offset, revision]);
+
+  const loading = loaded?.key !== requestKey;
+  const result = loading ? null : loaded?.data;
+  const error = loading ? "" : loaded?.error;
+  const busy = loading || deletingId !== null || updatingId !== null;
 
   useEffect(() => {
     const controller = new AbortController();
 
     async function loadApplications() {
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+      });
+
+      if (status) {
+        params.set("status", status);
+      }
+
       try {
         const response = await fetch(
-          `${API_URL}/applications?limit=20&offset=0`,
+          `${API_URL}/applications?${params}`,
           {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
             signal: controller.signal,
           },
         );
@@ -56,15 +81,18 @@ export default function Applications({ token }: Props) {
         const data: ApplicationList = await response.json();
 
         if (!controller.signal.aborted) {
-          setResult(data);
+          setLoaded({ key: requestKey, data, error: "" });
         }
       } catch (error) {
         if (!controller.signal.aborted) {
-          setError(
-            error instanceof Error
-              ? error.message
-              : "Could not load applications.",
-          );
+          setLoaded({
+            key: requestKey,
+            data: null,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Could not load applications.",
+          });
         }
       }
     }
@@ -72,37 +100,37 @@ export default function Applications({ token }: Props) {
     void loadApplications();
 
     return () => controller.abort();
-  }, [token]);
+  }, [token, status, offset, requestKey]);
 
-  if (error) {
-    return <p role="alert">{error}</p>;
-  }
-
-  if (!result) {
-    return <p role="status">Loading applications...</p>;
+  function refreshList() {
+    setQuery((current) => ({
+      ...current,
+      offset: 0,
+      revision: current.revision + 1,
+    }));
   }
 
   async function deleteApplication(application: Application) {
-    const confirmed = window.confirm(
-      `Delete the ${application.job_title} application at ${application.company}?`,
-    );
-  
-    if (!confirmed) return;
-  
+    if (
+      !window.confirm(
+        `Delete the ${application.job_title} application at ${application.company}?`,
+      )
+    ) {
+      return;
+    }
+
     setDeletingId(application.id);
     setActionError("");
-  
+
     try {
       const response = await fetch(
         `${API_URL}/applications/${application.id}`,
         {
           method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         },
       );
-  
+
       if (!response.ok) {
         throw new Error(
           response.status === 401
@@ -110,33 +138,21 @@ export default function Applications({ token }: Props) {
             : `Could not delete application (${response.status}).`,
         );
       }
-  
-      setResult((current) =>
-        current
-          ? {
-              ...current,
-              items: current.items.filter(
-                (item) => item.id !== application.id,
-              ),
-              total: current.total - 1,
-            }
-          : current,
-      );
+
+      refreshList();
     } catch (error) {
       setActionError(
-        error instanceof Error
-          ? error.message
-          : "Could not delete application.",
+        error instanceof Error ? error.message : "Deletion failed.",
       );
     } finally {
       setDeletingId(null);
     }
   }
 
-  async function updateStatus(applicationId: number, status: string) {
+  async function updateStatus(applicationId: number, nextStatus: string) {
     setUpdatingId(applicationId);
     setActionError("");
-  
+
     try {
       const response = await fetch(
         `${API_URL}/applications/${applicationId}`,
@@ -146,10 +162,10 @@ export default function Applications({ token }: Props) {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ status }),
+          body: JSON.stringify({ status: nextStatus }),
         },
       );
-  
+
       if (!response.ok) {
         throw new Error(
           response.status === 401
@@ -157,24 +173,11 @@ export default function Applications({ token }: Props) {
             : `Could not update application (${response.status}).`,
         );
       }
-  
-      const updated: Application = await response.json();
-  
-      setResult((current) =>
-        current
-          ? {
-              ...current,
-              items: current.items.map((item) =>
-                item.id === applicationId ? updated : item,
-              ),
-            }
-          : current,
-      );
+
+      refreshList();
     } catch (error) {
       setActionError(
-        error instanceof Error
-          ? error.message
-          : "Could not update application.",
+        error instanceof Error ? error.message : "Update failed.",
       );
     } finally {
       setUpdatingId(null);
@@ -184,62 +187,126 @@ export default function Applications({ token }: Props) {
   return (
     <section>
       <h2>Your applications</h2>
+
+      <label htmlFor="status-filter">Filter by status </label>
+      <select
+        id="status-filter"
+        value={status}
+        disabled={deletingId !== null || updatingId !== null}
+        onChange={(event) => {
+          setActionError("");
+          setQuery((current) => ({
+            ...current,
+            status: event.target.value,
+            offset: 0,
+          }));
+        }}
+      >
+        <option value="">All statuses</option>
+        {STATUSES.map((value) => (
+          <option key={value} value={value}>
+            {value}
+          </option>
+        ))}
+      </select>
+
       {actionError && <p role="alert">{actionError}</p>}
-      <p>
-        Showing {result.items.length} of {result.total} applications
-      </p>
+      {loading && <p role="status">Loading applications...</p>}
 
-      {result.items.length === 0 ? (
-        <p>You haven’t added any applications yet.</p>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Company</th>
-              <th scope="col">Job title</th>
-              <th scope="col">Status</th>
-              <th scope="col">Applied on</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {result.items.map((application) => (
-              <tr key={application.id}>
-                <td>{application.company}</td>
-                <td>{application.job_title}</td>
-                <td>
-                  <select
-                    aria-label={`Status for ${application.job_title} at ${application.company}`}
-                    value={application.status}
-                    onChange={(event) =>
-                      updateStatus(application.id, event.target.value)
-                    }
-                    disabled={updatingId !== null || deletingId !== null}
-                  >
-                    <option value="saved">Saved</option>
-                    <option value="applied">Applied</option>
-                    <option value="interviewing">Interviewing</option>
-                    <option value="offer">Offer</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
+      {error && (
+        <div>
+          <p role="alert">{error}</p>
+          <button onClick={refreshList}>Retry</button>
+        </div>
+      )}
 
-                  {updatingId === application.id && (
-                    <span role="status"> Saving...</span>
-                  )}
-                </td>
-                <td>{application.applied_on ?? "—"}</td>
-                <td>
-                  <button
-                    onClick={() => deleteApplication(application)}
-                    disabled={deletingId !== null || updatingId !== null}
-                  >
-                    {deletingId === application.id ? "Deleting..." : "Delete"}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {result && (
+        <>
+          <p>
+            Showing {result.items.length === 0 ? 0 : offset + 1}
+            –{offset + result.items.length} of {result.total} applications
+          </p>
+
+          {result.items.length === 0 ? (
+            <p>No applications match this view.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Company</th>
+                  <th scope="col">Job title</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Applied on</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.items.map((application) => (
+                  <tr key={application.id}>
+                    <td>{application.company}</td>
+                    <td>{application.job_title}</td>
+                    <td>
+                      <select
+                        aria-label={`Status for ${application.job_title} at ${application.company}`}
+                        value={application.status}
+                        disabled={busy}
+                        onChange={(event) =>
+                          updateStatus(application.id, event.target.value)
+                        }
+                      >
+                        {STATUSES.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                      {updatingId === application.id && (
+                        <span role="status"> Saving...</span>
+                      )}
+                    </td>
+                    <td>{application.applied_on ?? "—"}</td>
+                    <td>
+                      <button
+                        disabled={busy}
+                        onClick={() => deleteApplication(application)}
+                      >
+                        {deletingId === application.id
+                          ? "Deleting..."
+                          : "Delete"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          <nav aria-label="Application pages">
+            <button
+              disabled={busy || offset === 0}
+              onClick={() =>
+                setQuery((current) => ({
+                  ...current,
+                  offset: Math.max(0, current.offset - PAGE_SIZE),
+                }))
+              }
+            >
+              Previous
+            </button>
+
+            <button
+              disabled={busy || offset + PAGE_SIZE >= result.total}
+              onClick={() =>
+                setQuery((current) => ({
+                  ...current,
+                  offset: current.offset + PAGE_SIZE,
+                }))
+              }
+            >
+              Next
+            </button>
+          </nav>
+        </>
       )}
     </section>
   );
