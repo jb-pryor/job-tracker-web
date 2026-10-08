@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import Applications from "./Applications";
 import CreateApplication from "./CreateApplications";
+import Register from "./Register";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -94,6 +95,7 @@ function App() {
           <Applications key={`${token}-${listVersion}`} token={token} />
         </section>
       ) : (
+        <>
         <form onSubmit={handleLogin}>
           <h2>Log in</h2>
 
@@ -130,6 +132,8 @@ function App() {
           </button>
         </form>
 
+        <Register />
+        </>
       )}
     </main>
   );
