@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EditApplication from "./EditApplications";
 
 const API_URL = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
@@ -40,13 +41,16 @@ export default function Applications({ token }: Props) {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [actionError, setActionError] = useState("");
 
+  const [editing, setEditing] = useState<Application | null>(null);
+
   const { status, offset, revision } = query;
   const requestKey = JSON.stringify([token, status, offset, revision]);
 
   const loading = loaded?.key !== requestKey;
   const result = loading ? null : loaded?.data;
   const error = loading ? "" : loaded?.error;
-  const busy = loading || deletingId !== null || updatingId !== null;
+  const busy = loading || deletingId !== null || updatingId !== null || editing !== null;
+
 
   useEffect(() => {
     const controller = new AbortController();
@@ -187,12 +191,24 @@ export default function Applications({ token }: Props) {
   return (
     <section>
       <h2>Your applications</h2>
+      {editing && (
+        <EditApplication
+          key={editing.id}
+          token={token}
+          application={editing}
+          onCancel={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            refreshList();
+          }}
+        />
+      )}
 
       <label htmlFor="status-filter">Filter by status </label>
       <select
         id="status-filter"
         value={status}
-        disabled={deletingId !== null || updatingId !== null}
+        disabled={deletingId !== null || updatingId !== null || editing !== null}
         onChange={(event) => {
           setActionError("");
           setQuery((current) => ({
@@ -266,6 +282,15 @@ export default function Applications({ token }: Props) {
                     </td>
                     <td>{application.applied_on ?? "—"}</td>
                     <td>
+                    <button
+                      disabled={busy}
+                      onClick={() => {
+                        setActionError("");
+                        setEditing(application);
+                      }}
+                    >
+                      Edit
+                    </button>
                       <button
                         disabled={busy}
                         onClick={() => deleteApplication(application)}
