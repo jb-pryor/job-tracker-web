@@ -4,8 +4,9 @@ import Applications from "./Applications";
 import CreateApplication from "./CreateApplications";
 import Register from "./Register";
 
-import "./App.css"
+import "./App.css";
 
+// Read the backend address from Vite's environment configuration.
 const API_URL = import.meta.env.VITE_API_URL;
 
 type User = {
@@ -17,18 +18,23 @@ type User = {
 function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  // Authentication stays in memory, so refreshing the page logs the user out.
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [listVersion, setListVersion] = useState(0);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    // Handle submission with JavaScript instead of reloading the page.
     event.preventDefault();
     setError("");
     setLoading(true);
 
     try {
+      // The login endpoint expects form fields, with email named "username".
       const loginResponse = await fetch(`${API_URL}/auth/token`, {
         method: "POST",
         body: new URLSearchParams({
@@ -54,6 +60,7 @@ function App() {
         throw new Error("The API did not return an access token.");
       }
 
+      // Use the issued token to retrieve the authenticated user's profile.
       const profileResponse = await fetch(`${API_URL}/users/me`, {
         headers: {
           Authorization: `Bearer ${loginData.access_token}`,
@@ -74,11 +81,13 @@ function App() {
         error instanceof Error ? error.message : "Unable to log in.",
       );
     } finally {
+      // Re-enable the form whether login succeeded or failed.
       setLoading(false);
     }
   }
 
   function handleLogout() {
+    // Clear the local session; the issued token expires on the backend.
     setToken(null);
     setUser(null);
     setPassword("");
@@ -93,7 +102,7 @@ function App() {
           <h1>Job Tracker</h1>
           <p>Keep track of opportunities and your next steps.</p>
         </div>
-  
+
         {user && token && (
           <div className="account-controls">
             <span>{user.email}</span>
@@ -101,7 +110,8 @@ function App() {
           </div>
         )}
       </header>
-  
+
+      {/* Show the dashboard when signed in, otherwise show the account forms. */}
       {user && token ? (
         <div className="dashboard">
           <aside className="create-panel">
@@ -110,8 +120,9 @@ function App() {
               onCreated={() => setListVersion((version) => version + 1)}
             />
           </aside>
-  
+
           <div className="applications-panel">
+            {/* A new key remounts the list and fetches it after creation. */}
             <Applications key={`${token}-${listVersion}`} token={token} />
           </div>
         </div>
@@ -120,7 +131,7 @@ function App() {
           <form onSubmit={handleLogin}>
             <h2>Welcome back</h2>
             <p>Log in to manage your applications.</p>
-  
+
             <div>
               <label htmlFor="email">Email</label>
               <input
@@ -133,7 +144,7 @@ function App() {
                 disabled={loading}
               />
             </div>
-  
+
             <div>
               <label htmlFor="password">Password</label>
               <input
@@ -146,14 +157,14 @@ function App() {
                 disabled={loading}
               />
             </div>
-  
+
             {error && <p role="alert">{error}</p>}
-  
+
             <button type="submit" disabled={loading}>
               {loading ? "Logging in..." : "Log in"}
             </button>
           </form>
-  
+
           <Register />
         </div>
       )}

@@ -25,6 +25,7 @@ type Props = {
 };
 
 export default function Applications({ token }: Props) {
+  // Track the filter, page position, and a revision used to request fresh data.
   const [query, setQuery] = useState({
     status: "",
     offset: 0,
@@ -40,17 +41,20 @@ export default function Applications({ token }: Props) {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [actionError, setActionError] = useState("");
-
   const [editing, setEditing] = useState<Application | null>(null);
 
   const { status, offset, revision } = query;
   const requestKey = JSON.stringify([token, status, offset, revision]);
 
+  // Only display results that belong to the current request.
   const loading = loaded?.key !== requestKey;
   const result = loading ? null : loaded?.data;
   const error = loading ? "" : loaded?.error;
-  const busy = loading || deletingId !== null || updatingId !== null || editing !== null;
-
+  const busy =
+    loading ||
+    deletingId !== null ||
+    updatingId !== null ||
+    editing !== null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -103,9 +107,11 @@ export default function Applications({ token }: Props) {
 
     void loadApplications();
 
+    // Cancel the old request when the query changes or the component unmounts.
     return () => controller.abort();
   }, [token, status, offset, requestKey]);
 
+  // Return to the first page and refetch after a successful change.
   function refreshList() {
     setQuery((current) => ({
       ...current,
@@ -143,6 +149,7 @@ export default function Applications({ token }: Props) {
         );
       }
 
+      // Successful deletion has an empty response body, so no JSON is needed.
       refreshList();
     } catch (error) {
       setActionError(
@@ -158,6 +165,7 @@ export default function Applications({ token }: Props) {
     setActionError("");
 
     try {
+      // PATCH changes only the status; other application fields stay intact.
       const response = await fetch(
         `${API_URL}/applications/${applicationId}`,
         {
@@ -191,6 +199,8 @@ export default function Applications({ token }: Props) {
   return (
     <section>
       <h2>Your applications</h2>
+
+      {/* Mount a fresh edit form for the selected application. */}
       {editing && (
         <EditApplication
           key={editing.id}
@@ -208,9 +218,12 @@ export default function Applications({ token }: Props) {
       <select
         id="status-filter"
         value={status}
-        disabled={deletingId !== null || updatingId !== null || editing !== null}
+        disabled={
+          deletingId !== null || updatingId !== null || editing !== null
+        }
         onChange={(event) => {
           setActionError("");
+          // Start at the first page whenever the filter changes.
           setQuery((current) => ({
             ...current,
             status: event.target.value,
@@ -247,67 +260,69 @@ export default function Applications({ token }: Props) {
             <p>No applications match this view.</p>
           ) : (
             <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Company</th>
-                  <th scope="col">Job title</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Applied on</th>
-                  <th scope="col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.items.map((application) => (
-                  <tr key={application.id}>
-                    <td>{application.company}</td>
-                    <td>{application.job_title}</td>
-                    <td>
-                      <select
-                        aria-label={`Status for ${application.job_title} at ${application.company}`}
-                        value={application.status}
-                        disabled={busy}
-                        onChange={(event) =>
-                          updateStatus(application.id, event.target.value)
-                        }
-                      >
-                        {STATUSES.map((value) => (
-                          <option key={value} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                      {updatingId === application.id && (
-                        <span role="status"> Saving...</span>
-                      )}
-                    </td>
-                    <td>{application.applied_on ?? "—"}</td>
-                    <td>
-                    <button
-                      disabled={busy}
-                      onClick={() => {
-                        setActionError("");
-                        setEditing(application);
-                      }}
-                    >
-                      Edit
-                    </button>
-                      <button
-                        disabled={busy}
-                        onClick={() => deleteApplication(application)}
-                      >
-                        {deletingId === application.id
-                          ? "Deleting..."
-                          : "Delete"}
-                      </button>
-                    </td>
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Company</th>
+                    <th scope="col">Job title</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Applied on</th>
+                    <th scope="col">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {result.items.map((application) => (
+                    <tr key={application.id}>
+                      <td>{application.company}</td>
+                      <td>{application.job_title}</td>
+                      <td>
+                        <select
+                          aria-label={`Status for ${application.job_title} at ${application.company}`}
+                          value={application.status}
+                          disabled={busy}
+                          onChange={(event) =>
+                            updateStatus(application.id, event.target.value)
+                          }
+                        >
+                          {STATUSES.map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+
+                        {updatingId === application.id && (
+                          <span role="status"> Saving...</span>
+                        )}
+                      </td>
+                      <td>{application.applied_on ?? "—"}</td>
+                      <td>
+                        <button
+                          disabled={busy}
+                          onClick={() => {
+                            setActionError("");
+                            setEditing(application);
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          disabled={busy}
+                          onClick={() => deleteApplication(application)}
+                        >
+                          {deletingId === application.id
+                            ? "Deleting..."
+                            : "Delete"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 
+          {/* Move through results by changing how many records the API skips. */}
           <nav aria-label="Application pages">
             <button
               disabled={busy || offset === 0}

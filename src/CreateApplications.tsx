@@ -20,6 +20,7 @@ export default function CreateApplication({ token, onCreated }: Props) {
     event.preventDefault();
     setError("");
 
+    // Reject whitespace-only values before sending the request.
     if (!company.trim() || !jobTitle.trim()) {
       setError("Enter a company and job title.");
       return;
@@ -28,6 +29,7 @@ export default function CreateApplication({ token, onCreated }: Props) {
     setSaving(true);
 
     try {
+      // Send the application as JSON, using the token to identify its owner.
       const response = await fetch(`${API_URL}/applications`, {
         method: "POST",
         headers: {
@@ -38,6 +40,7 @@ export default function CreateApplication({ token, onCreated }: Props) {
           company: company.trim(),
           job_title: jobTitle.trim(),
           status,
+          // The optional date must be null rather than an empty string.
           applied_on: appliedOn || null,
         }),
       });
@@ -52,6 +55,7 @@ export default function CreateApplication({ token, onCreated }: Props) {
         );
       }
 
+      // Clear the form after success and notify App to refresh the list.
       setCompany("");
       setJobTitle("");
       setStatus("saved");
@@ -64,6 +68,7 @@ export default function CreateApplication({ token, onCreated }: Props) {
           : "Could not save application.",
       );
     } finally {
+      // Re-enable the form whether the request succeeded or failed.
       setSaving(false);
     }
   }

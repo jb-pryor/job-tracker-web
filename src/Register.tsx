@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Register() {
+  // Control whether the registration form is visible.
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,12 +13,14 @@ export default function Register() {
   const [saving, setSaving] = useState(false);
 
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
+    // Prevent a page reload and clear messages from the previous attempt.
     event.preventDefault();
     setError("");
     setMessage("");
     setSaving(true);
 
     try {
+      // Send the credentials to the API, which validates them and hashes the password.
       const response = await fetch(`${API_URL}/auth/register`, {
         method: "POST",
         headers: {
@@ -39,6 +42,7 @@ export default function Register() {
         );
       }
 
+      // Registration creates the account; the user still needs to log in.
       setPassword("");
       setMessage("Account created. You can now log in above.");
     } catch (error) {
@@ -46,6 +50,7 @@ export default function Register() {
         error instanceof Error ? error.message : "Registration failed.",
       );
     } finally {
+      // Re-enable the form whether registration succeeded or failed.
       setSaving(false);
     }
   }

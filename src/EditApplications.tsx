@@ -21,6 +21,7 @@ export default function EditApplication({
   onSaved,
   onCancel,
 }: Props) {
+  // Start the form with the application's existing values.
   const [company, setCompany] = useState(application.company);
   const [jobTitle, setJobTitle] = useState(application.job_title);
   const [appliedOn, setAppliedOn] = useState(application.applied_on ?? "");
@@ -31,6 +32,7 @@ export default function EditApplication({
     event.preventDefault();
     setError("");
 
+    // Reject whitespace-only values before sending the request.
     if (!company.trim() || !jobTitle.trim()) {
       setError("Enter a company and job title.");
       return;
@@ -39,6 +41,7 @@ export default function EditApplication({
     setSaving(true);
 
     try {
+      // PATCH updates these fields on the selected application.
       const response = await fetch(
         `${API_URL}/applications/${application.id}`,
         {
@@ -50,6 +53,7 @@ export default function EditApplication({
           body: JSON.stringify({
             company: company.trim(),
             job_title: jobTitle.trim(),
+            // Clearing the date sends null to remove the stored date.
             applied_on: appliedOn || null,
           }),
         },
@@ -65,12 +69,14 @@ export default function EditApplication({
         );
       }
 
+      // Notify the parent component to close the editor and refresh the list.
       onSaved();
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "Could not save changes.",
       );
     } finally {
+      // Re-enable the form whether saving succeeded or failed.
       setSaving(false);
     }
   }
