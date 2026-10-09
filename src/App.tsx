@@ -4,6 +4,8 @@ import Applications from "./Applications";
 import CreateApplication from "./CreateApplications";
 import Register from "./Register";
 
+import "./App.css"
+
 const API_URL = import.meta.env.VITE_API_URL;
 
 type User = {
@@ -84,56 +86,76 @@ function App() {
   }
 
   return (
-    <main>
-      <h1>Job Tracker</h1>
-
+    <main className="app-shell">
+      <header className="app-header">
+        <div>
+          <p className="eyebrow">Your career, organized</p>
+          <h1>Job Tracker</h1>
+          <p>Keep track of opportunities and your next steps.</p>
+        </div>
+  
+        {user && token && (
+          <div className="account-controls">
+            <span>{user.email}</span>
+            <button onClick={handleLogout}>Log out</button>
+          </div>
+        )}
+      </header>
+  
       {user && token ? (
-        <section>
-          <p>Signed in as {user.email}</p>
-          <button onClick={handleLogout}>Log out</button>
-          <CreateApplication token={token} onCreated={() => setListVersion((version) => version + 1)}/>
-          <Applications key={`${token}-${listVersion}`} token={token} />
-        </section>
+        <div className="dashboard">
+          <aside className="create-panel">
+            <CreateApplication
+              token={token}
+              onCreated={() => setListVersion((version) => version + 1)}
+            />
+          </aside>
+  
+          <div className="applications-panel">
+            <Applications key={`${token}-${listVersion}`} token={token} />
+          </div>
+        </div>
       ) : (
-        <>
-        <form onSubmit={handleLogin}>
-          <h2>Log in</h2>
-
-          <div>
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-
-          {error && <p role="alert">{error}</p>}
-
-          <button type="submit" disabled={loading}>
-            {loading ? "Logging in..." : "Log in"}
-          </button>
-        </form>
-
-        <Register />
-        </>
+        <div className="auth-panel">
+          <form onSubmit={handleLogin}>
+            <h2>Welcome back</h2>
+            <p>Log in to manage your applications.</p>
+  
+            <div>
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+  
+            <div>
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+  
+            {error && <p role="alert">{error}</p>}
+  
+            <button type="submit" disabled={loading}>
+              {loading ? "Logging in..." : "Log in"}
+            </button>
+          </form>
+  
+          <Register />
+        </div>
       )}
     </main>
   );

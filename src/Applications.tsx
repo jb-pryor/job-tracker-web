@@ -246,6 +246,7 @@ export default function Applications({ token }: Props) {
           {result.items.length === 0 ? (
             <p>No applications match this view.</p>
           ) : (
+            <div className="table-scroll">
             <table>
               <thead>
                 <tr>
@@ -304,6 +305,7 @@ export default function Applications({ token }: Props) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
 
           <nav aria-label="Application pages">
